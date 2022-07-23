@@ -1,0 +1,10 @@
+Line/Species	Frequency (GHz)	Excitation Energy (K)	Spectral Window (epoch1 convention)	Comments
+SiO v=2	342.504383	3595.11278	1	
+CO v=1	342.647636	3116.56067	1	
+SO 3\Sigma=0	344.310612	-1000	2	
+H(13)CN J=4-3	345.3397693	-1	2	
+SiO v=1	344.916543	1843.62835	2	
+SiO J=8-7, v=7	330.4775327	-1	0	
+H2O	331.12373	4881.41595	0	3( 2, 1), v2=2- 4( 1, 4), v2=2
+29SiO J=8-7, v=5	331.1581163	-1	0	
+AlO hfs	~344.3	-1	2	there is a list of hyperfine components I saved
