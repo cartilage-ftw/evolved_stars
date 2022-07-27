@@ -1,6 +1,49 @@
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import sys
+
+
+"""
+Author: Theo, Aayush
+"""
+
+plt.rc('text', usetex=True)
+plt.rc('font', **{'family':'serif'})
+
+
+def read_pf_table():
+    """
+    There's a table containing partition functions of molecules/ions for a range of temperatures.
+    """
+
+    path_to_table = '../data/part_func/table6.dat'
+    df = pd.read_table(path_to_table, header=2, delim_whitespace=True, index_col=False)
+    # a painful process of transposing and not screwing up the column names
+    data = df.T
+    temp_col = data.index.to_numpy().tolist()
+
+    data.columns = data.iloc[0].copy()
+    data = data.reset_index(drop=True).drop(0)
+
+    data['T[K]'] = temp_col[1:]
+    data.reset_index(drop=True, inplace=True)
+
+    pf_data = data.apply(pd.to_numeric, errors='ignore')
+    return pf_data
+
+pf_table = read_pf_table()
+
+# It turns out this looks like something easy to interpolate between
+#plt.plot(pf_table['T[K]'], pf_table['H2'], color='gray', marker='o', mfc='magenta')
+#plt.show()
+
+def get_part_func(species, temp):
+    """
+    Get the partition function for an species, for an arbitrary temperature between the grids
+    """
+    return np.interp(temp, pf_table['T[K]'], pf_table[species])
+
 
 def DopplerShift(vel,freq):
 
@@ -158,14 +201,11 @@ class Molecule:
 
     def PrintValues(self):
     
-        print "\nPrinting values of molecule: ",self.ID
-        print "Lines included: ",
-        for line in self.lines:
-            print line.ID,
-        print
-        print "Partition Function: ", self.Z
-        print "Excitation Temperature: ", self.Texc, " K"
-        print "Density:", self.Nmol, " m-3"    # In molecules per cubic meter
+        print("\nPrinting values of molecule: ",self.ID)
+        print("Lines included: ",[line.ID for line in self.lines])
+        print("Partition Function: ", self.Z)
+        print("Excitation Temperature: ", self.Texc, " K")
+        print("Density:", self.Nmol, " m-3")    # In molecules per cubic meter
         return ""
 
 
@@ -174,18 +214,20 @@ h = 6.62607004E-34
 dist = 102 #in parsec
 dist = dist*3.086E16 #conversion to meters
 deltaVelAbs = 8.0 # in km/s
-deltaVelEm = 5.0 # in km/s
-Rstar = 1.0 #in au
-vstar = 40
-absorptionShift = 9.0 #km/s
+deltaVelEm = 4.3 # in km/s
+Rstar = 2.0 #in au
+vstar = 39.3
+absorptionShift = 9 #km/s, Theo set it to 9 initially
 
 SiOv2_8_7  = Line("SiOv2_8_7",342.50460700E9,0.00216616,17.0,15.0,3595.12278, deltaVelAbs,deltaVelEm, dist)
 SiOv7_8_7  = Line("SiOv7_8_7",330.4775327E9,0.002080,17.0,15.0,12082.533, deltaVelAbs,deltaVelEm, dist)
 
 
 #SiOv2_300K = Molecule("SiOv2",2240.7865,[SiOv2_8_7],1500.0,1.75E10,2.0,Rstar,2500.0,"magenta")
-#SiOv2_1500K = Molecule("SiOv2",2240.7865,[SiOv2_8_7],1500.0,1.75E10,2.0,Rstar,2500.0,"magenta")
-SiOv2_1000K = Molecule("SiOv2",1162.9451,[SiOv2_8_7],1000.0,3E10,2.0,Rstar,2500.0,"magenta")
+#SiOv2_1500K = Molecule("SiOv2",2098.81,[SiOv2_8_7],1500.0,1.75E10,2.0,Rstar,2500.0,"crimson")
+#SiOv2_1000K = Molecule("SiOv2",get_part_func('SiO', 850),[SiOv2_8_7],850.0,3.2E9,2.3*Rstar,Rstar,2500.0,"dimgray")
+SiOv2_800K = Molecule("SiOv2", get_part_func('SiO', 800), [SiOv2_8_7], 800, 5E9, 2.3*Rstar, Rstar,
+                2420.0, 'red')
 #SiO_1000K = Molecule("SiO",1162.9451,[SiOv2_8_7,SiOv7_8_7],1000.0,3.0E10,2.0,Rstar,2500.0,"magenta")
 #SiO_2000K = Molecule("SiO",3318.628,[SiOv2_8_7,SiOv7_8_7],2000.0,3.0E10,2.0,Rstar,2500.0,"magenta")
 #SiO_3000K = Molecule("SiO",4481.5731,[SiOv2_8_7,SiOv7_8_7],3000.0,3.0E10,2.0,Rstar,2500.0,"magenta")
@@ -193,32 +235,60 @@ SiOv2_1000K = Molecule("SiOv2",1162.9451,[SiOv2_8_7],1000.0,3E10,2.0,Rstar,2500.
 #molecules = [SiO_1000K]
 #molecules = [SiO_2000K]
 #molecules = [SiO_3000K]
-molecules = [SiOv2_1000K]
+molecules = [SiOv2_800K]
 
-data = ["WHya_SiO_v2_epoch1_freq.ascii","WHya_SiO_v7_epoch1_freq.ascii"]
+ep1_line_path = '../data/ascii/epoch1/WHya_SiO_v2_larger_mask.ascii'
+ep2_line_path = '../data/ascii/epoch2/WHya_ep2_SiO_v-2_larger_mask.ascii'
 
-spec = []
+if __name__ == '__main__':
+    # load ascii
+    ep1_data = pd.read_csv(ep1_line_path, header=1)
+    ep2_data = pd.read_csv(ep2_line_path, header=1)
+    fig, ax = plt.subplots(figsize=(6,6.67))
 
-for fileName in data:
-    spec.append(np.loadtxt(fileName,comments="!").transpose())
-    
-spec = np.asarray(spec)
+    ep1_data['Frequency'] = DopplerShift(vstar, ep1_data['Frequency'])
+    ep2_data['Frequency'] = DopplerShift(vstar, ep2_data['Frequency'])
+    velocities = np.linspace(-5, 85, num=90)
 
-fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(15, 10),sharex=False,sharey=False)
-for i in range(0,len(data)):
+    #print("The velocities I'm using,", velocities)
 
-    spec[i][0] = DopplerShift(vstar,spec[i][0])
-    ax[i].plot(spec[i][0], spec[i][1], color='gray', lw=2)
-    ax[i].set_ylabel("Flux Dens. [Jy]")
 
-    print molecules[0].PrintValues()
+    ax.fill_between(ep1_data['Frequency']/1E9, ep1_data['Flux Density']/1E3, color='dodgerblue',
+                zorder=2, alpha=0.6, step='pre', label='Nov 2015')
+    ax.fill_between(ep2_data['Frequency']/1E9, ep2_data['Flux Density']/1E3,
+                alpha=0.6, step='pre', color='gold', label='Nov 2017')
+
+    #ax.step(ep1_data[freq_axis], ep1_data['Flux Density'], c='k', lw=0.25)
+    ax.step(ep2_data['Frequency']/1E9, ep2_data['Flux Density']/1E3, c='r', lw=0.25, alpha=0.4, zorder=1)
+
+    ax.minorticks_on()
+
+    ax.tick_params(axis='both', which='major', direction='in', length=8, labelsize=14)
+    ax.tick_params(axis='both', which='minor', direction='in', length=4, labelsize=14)
+
+    ax.set_xlabel('Frequency (Hz)', fontsize=14)
+    ax.set_ylabel('Flux Density', fontsize=14)
+    plt.title('SiO $v=2$', fontsize=14)
+    plt.axhline(y=0, xmin=0, xmax=1, ls='--', color='gray')
+    #if freq_axis == 'Velocity':
+    #    plt.axvline(x=39.5, ymin=0, ymax=1, ls='--', lw=1, c='dimgray', zorder=-1)
+    #else:
+    #   print('To mark the hrv=39.5 km/s line, convert that into frequency first.')
+
+    #print(molecules[0].PrintValues())
 
     for m in molecules:
+        m.PrintValues()
         for line in m.lines:
-            if ((line.freq/1E9-spec[i][0][0]) * (line.freq/1E9-spec[i][0][-1])) < 0.0:
-                emissionPlot = np.interp((line.freqRange+line.freq*absorptionShift/299792.458), line.freqRange, line.emission)
-                ax[i].plot((line.freqRange+line.freq*absorptionShift/299792.458)/1E9,line.absorption+emissionPlot,color=m.color)
-ax[0].set_xlabel("Frequency [GHz]")
-
-
-plt.show()
+            #if ((line.freq/1E9-spec[i][0][0]) * (line.freq/1E9-spec[i][0][-1])) < 0.0:
+            emissionPlot = np.interp((line.freqRange+line.freq*absorptionShift/299792.458), line.freqRange, line.emission)
+            line_label='T$_{exc}=$' + str(round(m.Texc)) + ', $N_{mol}=$'+str(m.Nmol/1E10) + 'E10'
+            ax.plot((line.freqRange+line.freq*absorptionShift/299792.458)/1E9,line.absorption+emissionPlot, color=m.color,
+                        label=line_label)
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.10), ncol=2, fontsize=13)
+    ax.set_xlabel("Frequency [GHz]")
+    ax.set_ylabel("Flux Dens. [Jy]")
+    ax.set_xlim(min(ep1_data['Frequency'])/1E9, max(ep2_data['Frequency'])/1E9)
+    plt.tight_layout()
+    plt.savefig(f'../figures/match_with_synth_SiOv2.png', dpi=300)
+    plt.show()
