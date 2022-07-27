@@ -213,11 +213,22 @@ c = 299792.458
 h = 6.62607004E-34
 dist = 102 #in parsec
 dist = dist*3.086E16 #conversion to meters
-deltaVelAbs = 8.0 # in km/s
-deltaVelEm = 4.3 # in km/s
+deltaVelAbs = 5.0 # in km/s
+deltaVelEm = 5.3 # in km/s
 Rstar = 2.0 #in au
-vstar = 39.3
-absorptionShift = 9 #km/s, Theo set it to 9 initially
+vstar = 39.9
+absorptionShift = -11 #km/s, Theo set it to 9 initially
+
+Rstar_ep1_mas = 26.9 # in milliarcsecs, Vlemmings+17
+Rstar_ep2_mas = 24.2
+Tstar_ep1 = 2495
+Tstar_ep2 = 2680
+
+#convert dist to AU
+Rstar_ep1 = Rstar_ep1_mas*102/1E3
+Rstar_ep2 = Rstar_ep2_mas*102/1E3
+
+print(Rstar_ep1)
 
 SiOv2_8_7  = Line("SiOv2_8_7",342.50460700E9,0.00216616,17.0,15.0,3595.12278, deltaVelAbs,deltaVelEm, dist)
 SiOv7_8_7  = Line("SiOv7_8_7",330.4775327E9,0.002080,17.0,15.0,12082.533, deltaVelAbs,deltaVelEm, dist)
@@ -225,9 +236,13 @@ SiOv7_8_7  = Line("SiOv7_8_7",330.4775327E9,0.002080,17.0,15.0,12082.533, deltaV
 
 #SiOv2_300K = Molecule("SiOv2",2240.7865,[SiOv2_8_7],1500.0,1.75E10,2.0,Rstar,2500.0,"magenta")
 #SiOv2_1500K = Molecule("SiOv2",2098.81,[SiOv2_8_7],1500.0,1.75E10,2.0,Rstar,2500.0,"crimson")
-#SiOv2_1000K = Molecule("SiOv2",get_part_func('SiO', 850),[SiOv2_8_7],850.0,3.2E9,2.3*Rstar,Rstar,2500.0,"dimgray")
-SiOv2_800K = Molecule("SiOv2", get_part_func('SiO', 800), [SiOv2_8_7], 800, 5E9, 2.3*Rstar, Rstar,
-                2420.0, 'red')
+#SiOv2_ep1 = Molecule("SiOv2",get_part_func('SiO', 770),[SiOv2_8_7],770,1.25E9,2.49*Rstar_ep1,Rstar_ep1,
+#            Tstar_ep1,"dimgray")
+#SiOv2_ep2_sameRout = Molecule("SiOv2", get_part_func('SiO', 1030), [SiOv2_8_7], 1030, 9E8, 2.49*Rstar_ep1, Rstar_ep2,
+#                Tstar_ep2, 'red')
+SiOv2_ep2_diffRout= Molecule("SiOv2", get_part_func('SiO', 1210), [SiOv2_8_7], 1210, 1E9, 2.48*Rstar_ep2, Rstar_ep2,
+                Tstar_ep2, 'crimson')
+#COv1_ep1 = Molecule("CO", get_part_func('CO', 770), )
 #SiO_1000K = Molecule("SiO",1162.9451,[SiOv2_8_7,SiOv7_8_7],1000.0,3.0E10,2.0,Rstar,2500.0,"magenta")
 #SiO_2000K = Molecule("SiO",3318.628,[SiOv2_8_7,SiOv7_8_7],2000.0,3.0E10,2.0,Rstar,2500.0,"magenta")
 #SiO_3000K = Molecule("SiO",4481.5731,[SiOv2_8_7,SiOv7_8_7],3000.0,3.0E10,2.0,Rstar,2500.0,"magenta")
@@ -235,7 +250,9 @@ SiOv2_800K = Molecule("SiOv2", get_part_func('SiO', 800), [SiOv2_8_7], 800, 5E9,
 #molecules = [SiO_1000K]
 #molecules = [SiO_2000K]
 #molecules = [SiO_3000K]
-molecules = [SiOv2_800K]
+molecules = [SiOv2_ep2_diffRout]
+
+print('The partition function for CO predicted here is', get_part_func('CO', 2000))
 
 ep1_line_path = '../data/ascii/epoch1/WHya_SiO_v2_larger_mask.ascii'
 ep2_line_path = '../data/ascii/epoch2/WHya_ep2_SiO_v-2_larger_mask.ascii'
@@ -253,13 +270,13 @@ if __name__ == '__main__':
     #print("The velocities I'm using,", velocities)
 
 
-    ax.fill_between(ep1_data['Frequency']/1E9, ep1_data['Flux Density']/1E3, color='dodgerblue',
+    ax.fill_between(ep1_data['Frequency']/1E9, ep1_data['Flux Density'], color='dodgerblue',
                 zorder=2, alpha=0.6, step='pre', label='Nov 2015')
-    ax.fill_between(ep2_data['Frequency']/1E9, ep2_data['Flux Density']/1E3,
+    ax.fill_between(ep2_data['Frequency']/1E9, ep2_data['Flux Density'],
                 alpha=0.6, step='pre', color='gold', label='Nov 2017')
 
     #ax.step(ep1_data[freq_axis], ep1_data['Flux Density'], c='k', lw=0.25)
-    ax.step(ep2_data['Frequency']/1E9, ep2_data['Flux Density']/1E3, c='r', lw=0.25, alpha=0.4, zorder=1)
+    ax.step(ep2_data['Frequency'], ep2_data['Flux Density'], c='r', lw=0.25, alpha=0.4, zorder=1)
 
     ax.minorticks_on()
 
@@ -282,12 +299,12 @@ if __name__ == '__main__':
         for line in m.lines:
             #if ((line.freq/1E9-spec[i][0][0]) * (line.freq/1E9-spec[i][0][-1])) < 0.0:
             emissionPlot = np.interp((line.freqRange+line.freq*absorptionShift/299792.458), line.freqRange, line.emission)
-            line_label='T$_{exc}=$' + str(round(m.Texc)) + ', $N_{mol}=$'+str(m.Nmol/1E10) + 'E10'
-            ax.plot((line.freqRange+line.freq*absorptionShift/299792.458)/1E9,line.absorption+emissionPlot, color=m.color,
+            line_label='T$_{exc}=$' + str(round(m.Texc)) + ', $N_{mol}=$'+str(m.Nmol/1E9) + 'E9'
+            ax.plot((line.freqRange+line.freq*absorptionShift/299792.458)/1E9, (line.absorption+emissionPlot)*1E3, color=m.color,
                         label=line_label)
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.10), ncol=2, fontsize=13)
     ax.set_xlabel("Frequency [GHz]")
-    ax.set_ylabel("Flux Dens. [Jy]")
+    ax.set_ylabel("Flux Dens. [mJy]")
     ax.set_xlim(min(ep1_data['Frequency'])/1E9, max(ep2_data['Frequency'])/1E9)
     plt.tight_layout()
     plt.savefig(f'../figures/match_with_synth_SiOv2.png', dpi=300)
