@@ -1,0 +1,13 @@
+# Partition functions for 29SiO v=0-6,taken from CDMS https://cdms.astro.uni-koeln.de/cgi-bin/cdmsinfo?file=e045504.cat
+T[K]	Q(T)
+2.725	3.0088
+5.000	5.2070
+9.375	9.4522
+18.75	18.5602
+37.50	36.7833
+75.00	73.2377
+150.0	146.1708
+225.0	219.2201
+300.0	292.9621
+500.0	501.9374
+1000.	1180.4053
