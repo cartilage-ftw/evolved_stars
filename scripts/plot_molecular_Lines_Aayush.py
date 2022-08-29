@@ -12,6 +12,29 @@ plt.rc('text', usetex=True)
 plt.rc('font', **{'family':'serif'})
 
 
+def read_cdms_table(file_name):
+    parent_dir = '../data/part_func/'
+    df = pd.read_csv(parent_dir + file_name, sep='\t', header=1)
+    return df
+    '''temp_grids = np.arange(10.0, 900, 10) # 1 K to 3,000 K in steps of 10
+    interp_vals = np.interp(temp_grids, df['T[K]'], df['Q(T)'])
+    print(interp_vals[:10])
+
+    fit_coeffs = np.polyfit(df['T[K]'], df['Q(T)'], deg=2)
+    larger_grids = np.arange(1, 3000, 10)
+    fitted_vals = fit_coeffs[0]*(larger_grids**2) + fit_coeffs[1]*larger_grids + fit_coeffs[2]
+
+    fig, ax = plt.subplots(figsize=(6,6))
+    ax.plot(df['T[K]'], df['Q(T)'], marker='o', ls='', mfc='m', c='darkgray', label='data')
+    ax.plot(temp_grids, interp_vals, ls='-.', c='deeppink', label='interpolated')
+    ax.plot(larger_grids, fitted_vals, ls=':', c='olive', label='polyfit')
+    plt.legend(fontsize=13)
+    #ax.set_xscale('log')
+    ax.set_xlabel('Temperature (K)')
+    ax.set_ylabel('Partition function (Q)')'''
+    #plt.savefig('29SiO_partition_func.png', dpi=150)
+    
+
 def read_pf_table():
     """
     There's a table containing partition functions of molecules/ions for a range of temperatures.
@@ -32,7 +55,11 @@ def read_pf_table():
     pf_data = data.apply(pd.to_numeric, errors='ignore')
     return pf_data
 
+
 pf_table = read_pf_table()
+# the Barklem & Collet table didn't have 29SiO
+# so this one was obtained from CDMS. Takes v=0-6 vibrationally excited states into account
+SiO_29_table = read_cdms_table('29SiO_v0_6.dat')
 
 # It turns out this looks like something easy to interpolate between
 #plt.plot(pf_table['T[K]'], pf_table['H2'], color='gray', marker='o', mfc='magenta')
@@ -42,8 +69,20 @@ def get_part_func(species, temp):
     """
     Get the partition function for an species, for an arbitrary temperature between the grids
     """
-    return np.interp(temp, pf_table['T[K]'], pf_table[species])
+    if species == '29SiO':
+        # here, polynomial fitting might be needed for going > 1000 K
+        fit_coeffs = np.polyfit(SiO_29_table['T[K]'], SiO_29_table['Q(T)'], deg=2)
+        temp_grid = np.arange(1, 3000, 10)
+        fitted_vals = fit_coeffs[0]*(temp_grid**2) + fit_coeffs[1]*temp_grid + fit_coeffs[2]
 
+        print('Warning: 29SiO partition function values were available only up to 1000K.'
+            + ' Extrapolate with caution')
+
+        return np.interp(temp, temp_grid, fitted_vals)
+    else:
+        return np.interp(temp, pf_table['T[K]'], pf_table[species])
+
+#print('Partition function of 29SiO at T=1200', get_part_func('29SiO', 1200))
 
 def DopplerShift(vel,freq):
 
@@ -213,11 +252,11 @@ c = 299792.458
 h = 6.62607004E-34
 dist = 102 #in parsec
 dist = dist*3.086E16 #conversion to meters
-deltaVelAbs = 5.0 # in km/s
-deltaVelEm = 5.3 # in km/s
-Rstar = 2.0 #in au
-vstar = 39.9
-absorptionShift = -11 #km/s, Theo set it to 9 initially
+deltaVelAbs = 3.2 # in km/s
+deltaVelEm = 4.2 # in km/s
+#Rstar = 2.0 #in au
+vstar = 41.7
+absorptionShift = -6. #km/s, Theo set it to 9 initially
 
 Rstar_ep1_mas = 26.9 # in milliarcsecs, Vlemmings+17
 Rstar_ep2_mas = 24.2
@@ -228,64 +267,103 @@ Tstar_ep2 = 2680
 Rstar_ep1 = Rstar_ep1_mas*102/1E3
 Rstar_ep2 = Rstar_ep2_mas*102/1E3
 
-print(Rstar_ep1)
+print('Rstar in ep1: ', Rstar_ep1)
 
-SiOv2_8_7  = Line("SiOv2_8_7",342.50460700E9,0.00216616,17.0,15.0,3595.12278, deltaVelAbs,deltaVelEm, dist)
-SiOv7_8_7  = Line("SiOv7_8_7",330.4775327E9,0.002080,17.0,15.0,12082.533, deltaVelAbs,deltaVelEm, dist)
+def mas_to_au(dist_mas):
+    """
+    Converts milliarcsecs angular length scales into astronomical units (AUs)
+    """
+    return dist_mas*102/1E3
 
+print('38 mas to AU:', mas_to_au(38))
+#print(Rstar_ep1)
 
-#SiOv2_300K = Molecule("SiOv2",2240.7865,[SiOv2_8_7],1500.0,1.75E10,2.0,Rstar,2500.0,"magenta")
-#SiOv2_1500K = Molecule("SiOv2",2098.81,[SiOv2_8_7],1500.0,1.75E10,2.0,Rstar,2500.0,"crimson")
-#SiOv2_ep1 = Molecule("SiOv2",get_part_func('SiO', 770),[SiOv2_8_7],770,1.25E9,2.49*Rstar_ep1,Rstar_ep1,
+#SiOv2_8_7  = Line("SiOv2_8_7",342.50460700E9,0.00216616,17.0,15.0,3595.12278, deltaVelAbs,deltaVelEm, dist)
+#
+
+#SiOv2_ep1 = Molecule("SiOv2",get_part_func('SiO', 870),[SiOv2_8_7],870,1.35E10,2.49*Rstar_ep1,Rstar_ep1,
 #            Tstar_ep1,"dimgray")
 #SiOv2_ep2_sameRout = Molecule("SiOv2", get_part_func('SiO', 1030), [SiOv2_8_7], 1030, 9E8, 2.49*Rstar_ep1, Rstar_ep2,
 #                Tstar_ep2, 'red')
-SiOv2_ep2_diffRout= Molecule("SiOv2", get_part_func('SiO', 1210), [SiOv2_8_7], 1210, 1E9, 2.48*Rstar_ep2, Rstar_ep2,
-                Tstar_ep2, 'crimson')
-#COv1_ep1 = Molecule("CO", get_part_func('CO', 770), )
-#SiO_1000K = Molecule("SiO",1162.9451,[SiOv2_8_7,SiOv7_8_7],1000.0,3.0E10,2.0,Rstar,2500.0,"magenta")
-#SiO_2000K = Molecule("SiO",3318.628,[SiOv2_8_7,SiOv7_8_7],2000.0,3.0E10,2.0,Rstar,2500.0,"magenta")
-#SiO_3000K = Molecule("SiO",4481.5731,[SiOv2_8_7,SiOv7_8_7],3000.0,3.0E10,2.0,Rstar,2500.0,"magenta")
+#SiOv2_ep2_diffRout= Molecule("SiOv2", get_part_func('SiO', 700), [SiOv2_8_7], 700, 9.5E10, 2.48*Rstar_ep2, Rstar_ep2,
+#                Tstar_ep2, 'crimson')
 
+### SiO v=7
+SiOv7_8_7  = Line("SiOv7_8_7",330.4775327E9,0.002080,17.0,15.0,12082.533, deltaVelAbs,deltaVelEm, dist)
+
+#SiO_v7_ep2 = Molecule("SiOv7", get_part_func('SiO', 1360), [SiOv7_8_7], 1360, 3E13, 1.41*Rstar_ep1,
+#            Rstar_ep1, Tstar_ep1, color='red')
+#SiO_v7_ep1 = Molecule("SiOv7", get_part_func('SiO', 1920), [SiOv7_8_7], 1920, 1.15E12, mas_to_au(38),
+#            Rstar_ep1, Tstar_ep1, color='dimgray')
+
+SiO_29_v5 = Line('29SiO v5', 331.1581163E9, 10**(-2.69195), 17.0, 15.0, 8693.55712, 
+                    deltaVelAbs, deltaVelEm, dist)
+SiO_29_v5_ep1 = Molecule('29SiO v=5', get_part_func('29SiO', 1350), [SiO_29_v5], 1350, 4.2E11,
+                    mas_to_au(40), Rstar_ep1, Tstar_ep1, color='dimgray')
+'''SiO_29_v5_ep2 = Molecule('29SiO v=5', get_part_func('29SiO', 1550), [SiO_29_v5], 1550, 5E11,
+                    mas_to_au(40), Rstar_ep2, Tstar_ep2, color='red')'''
+# NOTE: for the Einstein A coefficient, there were two values: 1.448e-6 (CDMS) and 2.433 (SLAIM)
+'''COv1_3_2 = Line("COv1 3 2", 342.647636E9, 1.448e-06, 7, 5, 3116.56067,
+                 deltaVelAbs, deltaVelEm, dist)'''
+'''COv1_ep1 = Molecule("CO", get_part_func('CO', 1500), [COv1_3_2], 1500, 5E12, 2.066*Rstar_ep2,
+                        Rstar_ep1, Tstar_ep1, color='dimgray')'''
+'''COv1_ep2 = Molecule("CO", get_part_func('CO', 1050), [COv1_3_2], 1050.0, 1.5E13, 2.066*Rstar_ep2,
+                        Rstar_ep2, Tstar_ep2, color='crimson')'''
+
+H2O_line = Line('H2O v2, 2v2, v1, v3')
 #molecules = [SiO_1000K]
 #molecules = [SiO_2000K]
 #molecules = [SiO_3000K]
-molecules = [SiOv2_ep2_diffRout]
+molecules = [SiO_29_v5_ep1]
 
-print('The partition function for CO predicted here is', get_part_func('CO', 2000))
+#print('The partition function for SiO predicted here is', get_part_func('SiO', 2000))
 
-ep1_line_path = '../data/ascii/epoch1/WHya_SiO_v2_larger_mask.ascii'
-ep2_line_path = '../data/ascii/epoch2/WHya_ep2_SiO_v-2_larger_mask.ascii'
+file_names_ep1 = {'SiOv2': 'WHya_SiO_v2_larger_mask_total.profile',
+                    'COv=1': 'WHya_CO_v-1_total.profile',
+                    'SiOv7': 'WHya_SiO_v7_total.profile',
+                    'H2O': 'WHya_H2O_total.profile',
+                    '29SiOv5': 'WHya_29SiO_v5_total.profile'
+                    }
+file_names_ep2 = {'SiOv2': 'WHya_ep2_SiO_v-2_larger_mask_total.profile',
+                    'COv=1': 'WHya_ep2_12CO_v-1_total.profile',
+                    'SiOv7': 'WHya_ep2_SiO_v7_total.profile',
+                    'H2O': 'WHya_ep2_H2O_total.profile',
+                    '29SiOv5': 'WHya_ep2_29SiO_v5_total.profile',
+                    }
+
+ep1_line_path = '../data/spec_profiles/epoch1/' + file_names_ep1['29SiOv5']
+ep2_line_path = '../data/spec_profiles/epoch2/' + file_names_ep2['29SiOv5']
+
 
 if __name__ == '__main__':
     # load ascii
-    ep1_data = pd.read_csv(ep1_line_path, header=1)
-    ep2_data = pd.read_csv(ep2_line_path, header=1)
+    ep1_data = pd.read_csv(ep1_line_path, skiprows=4, delim_whitespace=True,
+                names=['Channel', 'n_pixels', 'Frequency', 'Velocity', 'Flux Density'])
+    ep2_data = pd.read_csv(ep2_line_path,skiprows=4, delim_whitespace=True,
+                names=['Channel', 'n_pixels', 'Frequency', 'Velocity', 'Flux Density'])
     fig, ax = plt.subplots(figsize=(6,6.67))
 
     ep1_data['Frequency'] = DopplerShift(vstar, ep1_data['Frequency'])
     ep2_data['Frequency'] = DopplerShift(vstar, ep2_data['Frequency'])
-    velocities = np.linspace(-5, 85, num=90)
-
-    #print("The velocities I'm using,", velocities)
 
 
-    ax.fill_between(ep1_data['Frequency']/1E9, ep1_data['Flux Density'], color='dodgerblue',
+    ax.fill_between(ep1_data['Frequency']/1E3, ep1_data['Flux Density']*1E3, color='dodgerblue',
                 zorder=2, alpha=0.6, step='pre', label='Nov 2015')
-    ax.fill_between(ep2_data['Frequency']/1E9, ep2_data['Flux Density'],
+    ax.fill_between(ep2_data['Frequency']/1E3, ep2_data['Flux Density']*1E3,
                 alpha=0.6, step='pre', color='gold', label='Nov 2017')
 
     #ax.step(ep1_data[freq_axis], ep1_data['Flux Density'], c='k', lw=0.25)
-    ax.step(ep2_data['Frequency'], ep2_data['Flux Density'], c='r', lw=0.25, alpha=0.4, zorder=1)
+    ax.step(ep2_data['Frequency']/1E3, ep2_data['Flux Density']*1E3, c='r', lw=0.25, alpha=0.4, zorder=1)
 
     ax.minorticks_on()
 
     ax.tick_params(axis='both', which='major', direction='in', length=8, labelsize=14)
     ax.tick_params(axis='both', which='minor', direction='in', length=4, labelsize=14)
 
-    ax.set_xlabel('Frequency (Hz)', fontsize=14)
-    ax.set_ylabel('Flux Density', fontsize=14)
-    plt.title('SiO $v=2$', fontsize=14)
+    ax.set_xlabel("Frequency [GHz]", fontsize=14)
+    ax.set_ylabel("Flux Density [mJy]", fontsize=14)
+
+    plt.title('$^{29}$SiO $v=5$', fontsize=14)
     plt.axhline(y=0, xmin=0, xmax=1, ls='--', color='gray')
     #if freq_axis == 'Velocity':
     #    plt.axvline(x=39.5, ymin=0, ymax=1, ls='--', lw=1, c='dimgray', zorder=-1)
@@ -299,13 +377,11 @@ if __name__ == '__main__':
         for line in m.lines:
             #if ((line.freq/1E9-spec[i][0][0]) * (line.freq/1E9-spec[i][0][-1])) < 0.0:
             emissionPlot = np.interp((line.freqRange+line.freq*absorptionShift/299792.458), line.freqRange, line.emission)
-            line_label='T$_{exc}=$' + str(round(m.Texc)) + ', $N_{mol}=$'+str(m.Nmol/1E9) + 'E9'
+            line_label='T$_{exc}=$' + str(round(m.Texc)) + ', $N_{mol}=$'+str(m.Nmol/1E12) + 'E12'
             ax.plot((line.freqRange+line.freq*absorptionShift/299792.458)/1E9, (line.absorption+emissionPlot)*1E3, color=m.color,
-                        label=line_label)
+                        ls='-', label=line_label)
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.10), ncol=2, fontsize=13)
-    ax.set_xlabel("Frequency [GHz]")
-    ax.set_ylabel("Flux Dens. [mJy]")
-    ax.set_xlim(min(ep1_data['Frequency'])/1E9, max(ep2_data['Frequency'])/1E9)
+    ax.set_xlim(min(ep1_data['Frequency'])/1E3, max(ep1_data['Frequency'])/1E3)
     plt.tight_layout()
-    plt.savefig(f'../figures/match_with_synth_SiOv2.png', dpi=300)
+    plt.savefig(f'../figures/match_with_synth_29SiOv5.png', dpi=300)
     plt.show()
